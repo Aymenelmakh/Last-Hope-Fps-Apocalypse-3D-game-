@@ -1,0 +1,46 @@
+# Large Asset Packs
+Assets/map1/
+Assets/map2/
+Assets/Footsteps Mini Sound Pack/
+Assets/Voices - Essentials/
+EasyRoads3Dv3/
+
+# Unity generated folders
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+UserSettings/
+MemoryCaptures/
+
+# Unity crash files
+mono_crash.mem.*
+*.blob
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Asset store packages
+*.unitypackage
+
+# Terrain auto upgrade
+Assets/_TerrainAutoUpgrade/
+
+# Build outputs
+*.apk
+*.aab
+*.exe
+*.app
