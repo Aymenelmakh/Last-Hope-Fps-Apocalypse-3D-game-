@@ -9,8 +9,8 @@ public class CameraController : MonoBehaviour
     public float minYAngle = -360f;
     public float maxYAngle = 360f;
     public float smoothSpeed = 15f;
-    private float rotationX = 0f;
-    private float rotationY = 0f;
+    private static float rotationX = 0f;
+    private static float rotationY = 0f;
 
     void Start()
     {
