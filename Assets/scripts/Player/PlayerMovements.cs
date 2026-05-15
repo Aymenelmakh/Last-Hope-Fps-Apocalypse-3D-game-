@@ -1,11 +1,21 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class PlayerMovements : MonoBehaviour
 {
+    [Header("Player Health and Damage")]
+    private int maxHealth = 100;
+    public int currentHealth;
+    // UI and deathScreen
+    [SerializeField] private Image filler;
+    [SerializeField] private Text HealthState;
+    public float minValue = 0f;
+    public float maxValue = 100f;
     [Header("Player Movement and gravity")]
     public float PlayerWalkSpeed = 2.5f;
+    public float PlayerSprintSpeed = 4f;
     public float jumpForce = 1f;
     private CharacterController CC;
     public float gravity = -9.81f;
@@ -34,6 +44,14 @@ public class PlayerMovements : MonoBehaviour
     private bool wasGrounded;
     private int lastEquippedWeapon = -1;
     public ShootingController sc;
+    public DeathScreen death;
+
+    [Header("Player hurt sound")]
+    public AudioClip PlayerHurtClip;
+    public AudioSource HurtSource;
+    public float hurtSoundCooldown = 0.4f;
+    private float lastHurtSoundTime = -999f;
+    public DeathScreen ds;
 
     Transform GetActifWeapon()
     {
@@ -49,7 +67,11 @@ public class PlayerMovements : MonoBehaviour
 
     void Start()
     {
+        currentHealth = maxHealth;
+        filler.fillAmount = 1;
+        HealthState.text = "100 hp";
         CC = GetComponent<CharacterController>();
+
         Transform Weapon = GetActifWeapon();
         if (Weapon != null)
         {
@@ -83,7 +105,7 @@ public class PlayerMovements : MonoBehaviour
             nextFootStepTime = Time.time + footstepInterval;
         }
         // Handle jump
-        if (Input.GetKeyDown(KeyCode.Space) && isGrounded)
+        if (Input.GetKeyDown(KeyCode.Space) && isGrounded && !ds.isShowed)
         {
             PlayerJumpSound();
             animator.SetBool("Walk", false);
@@ -93,46 +115,65 @@ public class PlayerMovements : MonoBehaviour
         CC.Move(velocity * Time.deltaTime);
 
         // Switch Guns
-        if (Input.GetKeyDown(KeyCode.Alpha1))
+        if (!ds.isShowed)
         {
-            SwitchWeapon(1);
+            if (Input.GetKeyDown(KeyCode.Alpha1))
+            {
+                SwitchWeapon(1);
+            }
+            else if(Input.GetKeyDown(KeyCode.Alpha2))
+            {
+                SwitchWeapon(2);
+            }
+            else if(Input.GetKeyDown(KeyCode.Alpha3))
+            { 
+                SwitchWeapon(3);
+            }
+            else if(Input.GetKeyDown(KeyCode.Alpha4))
+            {
+                SwitchWeapon(4);
+            }
+            else if(Input.GetKeyDown(KeyCode.Alpha5)) SwitchWeapon(5);
+            else if(Input.GetKeyDown(KeyCode.Alpha6)) SwitchWeapon(6);
+            else if(Input.GetKeyDown(KeyCode.Alpha7)) SwitchWeapon(7);
+            // else if(Input.GetKeyDown(KeyCode.Alpha8)) SwitchWeapon(8);
         }
-        else if(Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SwitchWeapon(2);
-        }
-        else if(Input.GetKeyDown(KeyCode.Alpha3))
-        { 
-            SwitchWeapon(3);
-        }
-        else if(Input.GetKeyDown(KeyCode.Alpha4))
-        {
-            SwitchWeapon(4);
-        }
-        else if(Input.GetKeyDown(KeyCode.Alpha5)) SwitchWeapon(5);
-        else if(Input.GetKeyDown(KeyCode.Alpha6)) SwitchWeapon(6);
-        else if(Input.GetKeyDown(KeyCode.Alpha7)) SwitchWeapon(7);
     }
 
     public void PlayerMove()
-    {   
-        // Inputs
-        float x = Input.GetAxis("Horizontal");
-        float z = Input.GetAxis("Vertical");
-        //  move direction
+    {
+        float x = Input.GetAxisRaw("Horizontal");
+        float z = Input.GetAxisRaw("Vertical");
         Vector3 move = transform.right * x + transform.forward * z;
         move.y = 0f;
-        CC.Move(move * PlayerWalkSpeed * Time.deltaTime);
-        if (animator == null || animator.runtimeAnimatorController == null) return; 
-        // set animation based on movement
-        if (x != 0 || z != 0)
+        if (move.magnitude > 1f)
+            move = move.normalized;
+        bool isSprinting = Input.GetKey(KeyCode.LeftShift);
+        if (isSprinting)
         {
-            animator.SetBool("Idle", false);
-            animator.SetBool("Walk", true);
+            footstepInterval = 0.3f;
         }
         else
         {
+            footstepInterval = 0.5f;
+        }
+        float speed = isSprinting ? PlayerSprintSpeed : PlayerWalkSpeed;
+
+        CC.Move(move * speed * Time.deltaTime);
+
+        if (animator == null || animator.runtimeAnimatorController == null) return;
+
+        if (x != 0 || z != 0)
+        {
+            animator.SetBool("Idle", false);
+            animator.SetBool("Walk", !isSprinting); //  walk when moving without shift
+            animator.SetBool("Run", isSprinting);   //  run only when shift held
+        }
+        else
+        {
+            //  standing still — clear everything
             animator.SetBool("Walk", false);
+            animator.SetBool("Run", false);
             animator.SetBool("Idle", true);
         }
     }
@@ -141,6 +182,7 @@ public class PlayerMovements : MonoBehaviour
     {
         velocity.y += gravity * Time.deltaTime;
     }
+
 
     void PlayerFootstepSound()
     {
@@ -179,6 +221,10 @@ public class PlayerMovements : MonoBehaviour
                 if (nb == Weapon_Number)
                 {
                     gun.gameObject.SetActive(true);
+                     // Enable only this weapon's camera
+                    Camera weaponCam = gun.GetComponentInChildren<Camera>(true);
+                    if (weaponCam != null)
+                        weaponCam.enabled = true;
                     if (nb != 1)
                     {
                         sc = gun.GetComponent<ShootingController>();
@@ -196,10 +242,20 @@ public class PlayerMovements : MonoBehaviour
                         animator.SetTrigger("Reload");
                         StartCoroutine(EnableShootingAfterReload());
                     }
+                    if (nb == 5)
+                    {
+                        sc = gun.GetComponent<ShootingController>();
+                        sc.DamageAmount = 50f;
+                        sc.maxDistance = 300f;
+                    }
                     lastEquippedWeapon = nb;
                 }
                 else
                 {
+                    // Disable camera of inactive weapons
+                    Camera weaponCam = gun.GetComponentInChildren<Camera>(true);
+                    if (weaponCam != null)
+                        weaponCam.enabled = false;
                     gun.gameObject.SetActive(false);
                 }
             }
@@ -212,5 +268,31 @@ public class PlayerMovements : MonoBehaviour
         yield return new WaitForSeconds(reloadLength);
         if (sc != null)
             sc.enabled = true;
+    }
+
+    public void PlayerDamage(int Damage)
+    {
+        filler.fillAmount = currentHealth > 0 ? (currentHealth - Damage) / (maxValue - minValue) : 0;
+        currentHealth -= Damage;
+        currentHealth = Mathf.Max(currentHealth, 0); 
+        int SpaceIndex = HealthState.text.IndexOf(' ');
+        HealthState.text = currentHealth + " hp";
+        if (Time.time - lastHurtSoundTime >= hurtSoundCooldown)
+        {
+            HurtSource.PlayOneShot(PlayerHurtClip);
+            lastHurtSoundTime = Time.time;
+        }
+        if (currentHealth <= 0 && filler.fillAmount <= 0)
+        {
+            currentHealth = 0;
+            // player Dead
+            PlayerDeath();
+        }
+    }
+    private void PlayerDeath()
+    {
+        // change Screen
+        death.isShowed = true;
+        Debug.Log("Player Dead");
     }
 }
