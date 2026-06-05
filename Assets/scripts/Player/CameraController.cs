@@ -3,12 +3,12 @@ using UnityEngine;
 public class CameraController : MonoBehaviour
 {
     public Transform playerTransform;
-    public float sensitivity = 2f;
+    public float sensitivity = 1.5f;
     public float minXAngle = -30f;
     public float maxXAngle = 30f;
     public float minYAngle = -360f;
     public float maxYAngle = 360f;
-    public float smoothSpeed = 15f;
+    public float smoothSpeed = 10f;
     private static float rotationX = 0f;
     private static float rotationY = 0f;
 
@@ -22,6 +22,8 @@ public class CameraController : MonoBehaviour
     }
     void Update()
     {
+        if (PauseQuit.isPaused) return;
+        LoadSetting();
         float mouseX = Input.GetAxis("Mouse X") * sensitivity;
         float mouseY = Input.GetAxis("Mouse Y") * sensitivity;
         // Debug.Log("mouseX : " + mouseX);
@@ -36,5 +38,17 @@ public class CameraController : MonoBehaviour
 
         playerTransform.rotation = Quaternion.Slerp(playerTransform.rotation, targetRotation, smoothSpeed * Time.deltaTime);
         transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, smoothSpeed * Time.deltaTime);
+    }
+
+    void LoadSetting()
+    {
+        if (PlayerPrefs.HasKey("SmoothSpeed"))
+        {
+            smoothSpeed = PlayerPrefs.GetFloat("SmoothSpeed");
+        }
+        if (PlayerPrefs.HasKey("Sensitivity"))
+        {
+            sensitivity = PlayerPrefs.GetFloat("Sensitivity");
+        }
     }
 }
